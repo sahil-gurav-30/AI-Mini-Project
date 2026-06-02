@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GBFS Route Planner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0c0e14;
+  --bg2: #131620;
+  --bg3: #1a1e2e;
+  --card: #1e2235;
+  --border: rgba(255,255,255,0.07);
+  --border2: rgba(255,255,255,0.13);
+  --text: #e8eaf2;
+  --muted: #6e728a;
+  --accent: #6c63ff;
+  --accent2: #9d97ff;
+  --gold: #f5c842;
+  --teal: #2dd4bf;
+  --red: #ff5a6e;
+  --green: #4ade80;
+  --orange: #fb923c;
+  --node-r: 6;
+  --font-display: 'Syne', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-display);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ---- Header ---- */
+header {
+  padding: 28px 36px 20px;
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  border-bottom: 1px solid var(--border);
+}
+.logo { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
+.logo span { color: var(--accent2); }
+.tag {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  background: rgba(108,99,255,0.18);
+  color: var(--accent2);
+  padding: 3px 8px;
+  border-radius: 4px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border: 1px solid rgba(108,99,255,0.3);
+}
+
+/* ---- Layout ---- */
+.layout {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  height: calc(100vh - 69px);
+  min-height: 560px;
+}
+
+/* ---- Sidebar ---- */
+.sidebar {
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+.sidebar-section {
+  padding: 20px;
+  border-bottom: 1px solid var(--border);
+}
+.sidebar-section h3 {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 14px;
+}
+.field { margin-bottom: 12px; }
+.field label {
+  display: block;
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 6px;
+  font-family: var(--font-mono);
+  letter-spacing: 0.04em;
+}
+select, button {
+  width: 100%;
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  color: var(--text);
+  border-radius: 8px;
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 500;
+  padding: 9px 12px;
+  cursor: pointer;
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+  transition: border-color 0.2s, background 0.2s;
+}
+select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236e728a'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 30px; }
+select:hover, select:focus { border-color: var(--accent); }
+.btn-run {
+  background: linear-gradient(135deg, var(--accent), #8b5cf6);
+  border: none;
+  color: #fff;
+  font-weight: 700;
+  font-size: 14px;
+  padding: 12px;
+  border-radius: 8px;
+  margin-top: 4px;
+  transition: transform 0.15s, box-shadow 0.15s;
+  letter-spacing: 0.03em;
+}
+.btn-run:hover { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(108,99,255,0.4); }
+.btn-run:active { transform: translateY(0); }
+
+/* ---- Stats ---- */
+.stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 4px; }
+.stat {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+.stat-label { font-size: 10px; color: var(--muted); font-family: var(--font-mono); letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 4px; }
+.stat-value { font-size: 18px; font-weight: 700; }
+.stat-value.accent { color: var(--accent2); }
+.stat-value.gold { color: var(--gold); }
+.stat-value.teal { color: var(--teal); }
+.stat-value.green { color: var(--green); }
+
+/* ---- Steps list ---- */
+.steps-list { display: flex; flex-direction: column; gap: 0; margin-top: 4px; }
+.step-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  opacity: 0;
+  transform: translateX(-8px);
+  transition: opacity 0.3s, transform 0.3s;
+}
+.step-item.visible { opacity: 1; transform: translateX(0); }
+.step-num {
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700; font-family: var(--font-mono);
+  flex-shrink: 0;
+}
+.step-num.path { background: rgba(108,99,255,0.2); color: var(--accent2); border: 1px solid var(--accent); }
+.step-num.explored { background: rgba(245,200,66,0.1); color: var(--gold); border: 1px solid rgba(245,200,66,0.3); }
+.step-name { font-family: var(--font-mono); color: var(--text); font-size: 11px; font-weight: 500; flex: 1; }
+.step-h { font-family: var(--font-mono); font-size: 10px; color: var(--muted); }
+
+/* ---- Legend ---- */
+.legend { display: flex; flex-direction: column; gap: 8px; }
+.legend-item { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--muted); }
+.legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+/* ---- Map canvas ---- */
+.map-area {
+  position: relative;
+  background: var(--bg2);
+  overflow: hidden;
+}
+#map-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* ---- SVG node styles ---- */
+.city-node { cursor: pointer; transition: all 0.3s; }
+.city-node circle {
+  transition: r 0.3s, fill 0.4s, stroke 0.3s;
+}
+.city-node text { pointer-events: none; user-select: none; }
+.edge-line { stroke: rgba(255,255,255,0.07); stroke-width: 1; transition: stroke 0.4s, stroke-width 0.3s, opacity 0.4s; }
+.edge-line.path-edge { stroke: var(--accent2); stroke-width: 2.5; opacity: 1; filter: drop-shadow(0 0 4px rgba(157,151,255,0.6)); }
+.edge-line.explored-edge { stroke: rgba(245,200,66,0.3); stroke-width: 1.5; }
+
+/* ---- Tooltip ---- */
+.tooltip {
+  position: absolute;
+  background: var(--card);
+  border: 1px solid var(--border2);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 12px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+  z-index: 10;
+  max-width: 180px;
+  font-family: var(--font-mono);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+}
+.tooltip.show { opacity: 1; }
+.tt-name { font-weight: 700; font-size: 13px; color: var(--text); margin-bottom: 4px; font-family: var(--font-display); }
+.tt-row { display: flex; justify-content: space-between; gap: 16px; color: var(--muted); }
+.tt-val { color: var(--text); }
+
+/* ---- Empty state ---- */
+.empty-state {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--muted);
+  pointer-events: none;
+}
+.empty-icon { font-size: 48px; opacity: 0.3; }
+.empty-text { font-size: 14px; font-weight: 600; }
+.empty-sub { font-size: 12px; opacity: 0.6; }
+
+/* ---- Speed control ---- */
+.speed-row { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+.speed-row label { font-size: 11px; color: var(--muted); font-family: var(--font-mono); white-space: nowrap; flex-shrink: 0; }
+input[type=range] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  background: var(--bg3);
+  border-radius: 2px;
+  outline: none;
+  border: none;
+  padding: 0;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+}
+.speed-val { font-size: 11px; font-family: var(--font-mono); color: var(--text); min-width: 32px; text-align: right; }
+
+/* ---- Algo info ---- */
+.algo-info {
+  background: rgba(108,99,255,0.07);
+  border: 1px solid rgba(108,99,255,0.2);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+.algo-info strong { color: var(--accent2); }
+
+/* ---- No path ---- */
+.no-path {
+  background: rgba(255,90,110,0.08);
+  border: 1px solid rgba(255,90,110,0.25);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 12px;
+  color: var(--red);
+  display: none;
+}
+
+@keyframes pulse-ring {
+  0%   { r: 8; opacity: 0.7; }
+  100% { r: 18; opacity: 0; }
+}
+.pulse { animation: pulse-ring 1.2s ease-out infinite; fill: none; stroke: var(--accent); stroke-width: 1.5; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">GBFS <span>Route Planner</span></div>
+  <span class="tag">Greedy Best-First Search</span>
+</header>
+
+<div class="layout">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-section">
+      <h3>Route Setup</h3>
+      <div class="field">
+        <label>Start City</label>
+        <select id="start-sel"></select>
+      </div>
+      <div class="field">
+        <label>Goal City</label>
+        <select id="goal-sel"></select>
+      </div>
+      <div class="speed-row">
+        <label>Anim. speed</label>
+        <input type="range" id="speed" min="1" max="10" value="5">
+        <span class="speed-val" id="speed-val">5</span>
+      </div>
+      <button class="btn-run" id="run-btn" onclick="runSearch()">▶ Run GBFS</button>
+      <div class="no-path" id="no-path">No path found between these cities.</div>
+    </div>
+
+    <div class="sidebar-section">
+      <h3>Algorithm</h3>
+      <div class="algo-info">
+        <strong>h(n)</strong> = haversine distance to goal<br>
+        Always expands the node with <strong>smallest h(n)</strong>.<br>
+        Fast but <strong>not optimal</strong> — may miss shorter paths.
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <h3>Results</h3>
+      <div class="stat-grid">
+        <div class="stat"><div class="stat-label">Distance</div><div class="stat-value gold" id="s-dist">—</div></div>
+        <div class="stat"><div class="stat-label">Hops</div><div class="stat-value accent" id="s-hops">—</div></div>
+        <div class="stat"><div class="stat-label">Explored</div><div class="stat-value teal" id="s-exp">—</div></div>
+        <div class="stat"><div class="stat-label">Efficiency</div><div class="stat-value green" id="s-eff">—</div></div>
+      </div>
+    </div>
+
+    <div class="sidebar-section" style="flex:1; overflow-y:auto;">
+      <h3>Exploration Log</h3>
+      <div class="steps-list" id="steps-list"></div>
+    </div>
+
+    <div class="sidebar-section">
+      <h3>Legend</h3>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-dot" style="background:var(--accent2)"></div> Path node</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--gold)"></div> Explored (not on path)</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div> Start city</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--red)"></div> Goal city</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--muted);border-radius:2px;width:16px;height:3px"></div> Unexplored edge</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--accent2);border-radius:2px;width:16px;height:3px"></div> Final path</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Map -->
+  <main class="map-area" id="map-area">
+    <div class="empty-state" id="empty-state">
+      <div class="empty-icon">🗺</div>
+      <div class="empty-text">Select cities and run GBFS</div>
+      <div class="empty-sub">The search will animate step by step</div>
+    </div>
+    <svg id="map-svg" viewBox="0 0 800 540"></svg>
+    <div class="tooltip" id="tooltip">
+      <div class="tt-name" id="tt-name"></div>
+      <div class="tt-row"><span>h(goal)</span><span class="tt-val" id="tt-h">—</span></div>
+      <div class="tt-row"><span>lat/lon</span><span class="tt-val" id="tt-coord">—</span></div>
+    </div>
+  </main>
+</div>
+
+<script>
+// =============================================
+//   DATA
+// =============================================
+const CITIES = {
+  "Arad":           [46.1866, 21.3123],
+  "Zerind":         [46.6225, 21.5172],
+  "Oradea":         [47.0458, 21.9189],
+  "Sibiu":          [45.8000, 24.1500],
+  "Fagaras":        [45.8416, 24.9730],
+  "Rimnicu Vilcea": [45.0997, 24.3695],
+  "Pitesti":        [44.8565, 24.8692],
+  "Timisoara":      [45.7489, 21.2087],
+  "Lugoj":          [45.6910, 21.9030],
+  "Mehadia":        [44.9040, 22.3640],
+  "Dobreta":        [44.6369, 22.6566],
+  "Craiova":        [44.3302, 23.7949],
+  "Bucharest":      [44.4268, 26.1025],
+  "Giurgiu":        [43.9037, 25.9699],
+  "Urziceni":       [44.7165, 26.6413],
+  "Hirsova":        [44.6894, 27.9459],
+  "Eforie":         [44.0614, 28.6336],
+  "Vaslui":         [46.6407, 27.7276],
+  "Iasi":           [47.1585, 27.6014],
+  "Neamt":          [46.9759, 26.3819],
+};
+
+const EDGES = [
+  ["Arad","Zerind",75],["Arad","Sibiu",140],["Arad","Timisoara",118],
+  ["Zerind","Oradea",71],["Oradea","Sibiu",151],
+  ["Sibiu","Fagaras",99],["Sibiu","Rimnicu Vilcea",80],
+  ["Fagaras","Bucharest",211],
+  ["Rimnicu Vilcea","Pitesti",97],["Rimnicu Vilcea","Craiova",146],
+  ["Pitesti","Bucharest",101],["Pitesti","Craiova",138],
+  ["Timisoara","Lugoj",111],["Lugoj","Mehadia",70],
+  ["Mehadia","Dobreta",75],["Dobreta","Craiova",120],
+  ["Craiova","Bucharest",180],
+  ["Bucharest","Giurgiu",90],["Bucharest","Urziceni",85],
+  ["Urziceni","Hirsova",98],["Hirsova","Eforie",86],
+  ["Urziceni","Vaslui",142],["Vaslui","Iasi",92],["Iasi","Neamt",87],
+];
+
+// =============================================
+//   HELPERS
+// =============================================
+function haversine(a, b) {
+  const [lat1, lon1] = CITIES[a], [lat2, lon2] = CITIES[b];
+  const R = 6371, p = Math.PI / 180;
+  const dp = (lat2 - lat1) * p, dl = (lon2 - lon1) * p;
+  const x = Math.sin(dp/2)**2 + Math.cos(lat1*p)*Math.cos(lat2*p)*Math.sin(dl/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1-x));
+}
+
+function buildGraph() {
+  const g = {};
+  Object.keys(CITIES).forEach(c => g[c] = []);
+  EDGES.forEach(([a,b,d]) => { g[a].push([b,d]); g[b].push([a,d]); });
+  return g;
+}
+
+// Min-heap
+class MinHeap {
+  constructor() { this.h = []; }
+  push(item) {
+    this.h.push(item);
+    let i = this.h.length - 1;
+    while (i > 0) {
+      const p = (i-1)>>1;
+      if (this.h[p][0] <= this.h[i][0]) break;
+      [this.h[p], this.h[i]] = [this.h[i], this.h[p]];
+      i = p;
+    }
+  }
+  pop() {
+    const top = this.h[0];
+    const last = this.h.pop();
+    if (this.h.length) {
+      this.h[0] = last;
+      let i = 0;
+      while (true) {
+        let s = i, l = 2*i+1, r = 2*i+2;
+        if (l < this.h.length && this.h[l][0] < this.h[s][0]) s = l;
+        if (r < this.h.length && this.h[r][0] < this.h[s][0]) s = r;
+        if (s === i) break;
+        [this.h[i], this.h[s]] = [this.h[s], this.h[i]];
+        i = s;
+      }
+    }
+    return top;
+  }
+  get size() { return this.h.length; }
+}
+
+function gbfs(graph, start, goal) {
+  const heap = new MinHeap();
+  heap.push([haversine(start, goal), start, [start], 0]);
+  const visited = new Set(), explored = [], steps = [];
+
+  while (heap.size) {
+    const [h, cur, path, cost] = heap.pop();
+    if (visited.has(cur)) continue;
+    visited.add(cur); explored.push(cur);
+    steps.push({ city: cur, h: Math.round(h), path: [...path], cost: Math.round(cost), onPath: false });
+
+    if (cur === goal) {
+      steps.forEach(s => s.onPath = path.includes(s.city));
+      return { path, cost: Math.round(cost), explored, steps, found: true };
+    }
+    for (const [nb, ec] of graph[cur]) {
+      if (!visited.has(nb)) {
+        heap.push([haversine(nb, goal), nb, [...path, nb], cost + ec]);
+      }
+    }
+  }
+  return { path: [], cost: 0, explored, steps, found: false };
+}
+
+// =============================================
+//   MAP PROJECTION
+// =============================================
+const PAD = 48;
+function projectCities(w, h) {
+  const lats = Object.values(CITIES).map(c => c[0]);
+  const lons = Object.values(CITIES).map(c => c[1]);
+  const minLat = Math.min(...lats), maxLat = Math.max(...lats);
+  const minLon = Math.min(...lons), maxLon = Math.max(...lons);
+  const coords = {};
+  Object.entries(CITIES).forEach(([name, [lat, lon]]) => {
+    const x = PAD + (lon - minLon) / (maxLon - minLon) * (w - 2*PAD);
+    const y = h - PAD - (lat - minLat) / (maxLat - minLat) * (h - 2*PAD);
+    coords[name] = [Math.round(x), Math.round(y)];
+  });
+  return coords;
+}
+
+// =============================================
+//   SVG RENDERING
+// =============================================
+const NS = "http://www.w3.org/2000/svg";
+let coords = {}, edgeMap = {}, nodeMap = {}, edgeLabelMap = {};
+
+function makeEl(tag, attrs) {
+  const el = document.createElementNS(NS, tag);
+  Object.entries(attrs).forEach(([k,v]) => el.setAttribute(k, v));
+  return el;
+}
+
+function edgeKey(a, b) { return [a,b].sort().join('|'); }
+
+function renderMap() {
+  const svg = document.getElementById('map-svg');
+  const { width, height } = svg.getBoundingClientRect();
+  const W = width || 800, H = height || 540;
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.innerHTML = '';
+  coords = projectCities(W, H);
+
+  // Grid bg dots
+  const dg = makeEl('g', {opacity: '0.04'});
+  for (let x = 40; x < W; x += 40) for (let y = 40; y < H; y += 40) {
+    const c = makeEl('circle', {cx: x, cy: y, r: 1, fill: '#fff'});
+    dg.appendChild(c);
+  }
+  svg.appendChild(dg);
+
+  // Edges
+  const eg = makeEl('g', {});
+  edgeMap = {}; edgeLabelMap = {};
+  EDGES.forEach(([a, b, dist]) => {
+    const [x1,y1] = coords[a], [x2,y2] = coords[b];
+    const line = makeEl('line', { x1, y1, x2, y2, class: 'edge-line' });
+    eg.appendChild(line);
+    const key = edgeKey(a, b);
+    edgeMap[key] = line;
+
+    // Edge label (distance)
+    const mx = (x1+x2)/2, my = (y1+y2)/2;
+    const lbl = makeEl('text', {
+      x: mx, y: my - 4,
+      'text-anchor': 'middle',
+      fill: 'rgba(255,255,255,0.12)',
+      'font-size': '9',
+      'font-family': 'JetBrains Mono, monospace',
+    });
+    lbl.textContent = dist;
+    eg.appendChild(lbl);
+    edgeLabelMap[key] = lbl;
+  });
+  svg.appendChild(eg);
+
+  // Nodes
+  const ng = makeEl('g', {});
+  nodeMap = {};
+  Object.entries(coords).forEach(([name, [cx, cy]]) => {
+    const g = makeEl('g', { class: 'city-node', transform: `translate(${cx},${cy})` });
+    // Pulse ring (hidden by default)
+    const pulse = makeEl('circle', { r: 8, class: 'pulse', style: 'display:none', fill: 'none' });
+    const dot = makeEl('circle', { r: 5, fill: '#3a3d55', stroke: 'rgba(255,255,255,0.2)', 'stroke-width': 1 });
+    const lbl = makeEl('text', {
+      x: 0, y: -10,
+      'text-anchor': 'middle',
+      fill: 'rgba(255,255,255,0.45)',
+      'font-size': '10',
+      'font-family': 'Syne, sans-serif',
+      'font-weight': '600',
+    });
+    lbl.textContent = name;
+    g.appendChild(pulse);
+    g.appendChild(dot);
+    g.appendChild(lbl);
+
+    g.addEventListener('mouseenter', () => showTooltip(name, cx, cy));
+    g.addEventListener('mouseleave', () => hideTooltip());
+
+    ng.appendChild(g);
+    nodeMap[name] = { g, dot, lbl, pulse };
+  });
+  svg.appendChild(ng);
+}
+
+function showTooltip(name, cx, cy) {
+  const tt = document.getElementById('tooltip');
+  const goal = document.getElementById('goal-sel').value;
+  document.getElementById('tt-name').textContent = name;
+  document.getElementById('tt-h').textContent = goal ? Math.round(haversine(name, goal)) + ' km' : '—';
+  const [lat, lon] = CITIES[name];
+  document.getElementById('tt-coord').textContent = `${lat.toFixed(2)}, ${lon.toFixed(2)}`;
+  const area = document.getElementById('map-area').getBoundingClientRect();
+  const svg = document.getElementById('map-svg');
+  const svgRect = svg.getBoundingClientRect();
+  const scaleX = svgRect.width / parseFloat(svg.getAttribute('viewBox').split(' ')[2]);
+  const scaleY = svgRect.height / parseFloat(svg.getAttribute('viewBox').split(' ')[3]);
+  let lx = svgRect.left - area.left + cx * scaleX + 14;
+  let ly = svgRect.top - area.top + cy * scaleY - 30;
+  tt.style.left = lx + 'px'; tt.style.top = ly + 'px';
+  tt.classList.add('show');
+}
+function hideTooltip() { document.getElementById('tooltip').classList.remove('show'); }
+
+function resetColors() {
+  Object.values(nodeMap).forEach(({ dot, lbl, pulse }) => {
+    dot.setAttribute('r', 5);
+    dot.setAttribute('fill', '#3a3d55');
+    dot.setAttribute('stroke', 'rgba(255,255,255,0.2)');
+    dot.setAttribute('stroke-width', 1);
+    lbl.setAttribute('fill', 'rgba(255,255,255,0.45)');
+    pulse.style.display = 'none';
+  });
+  Object.values(edgeMap).forEach(line => {
+    line.setAttribute('class', 'edge-line');
+  });
+  Object.values(edgeLabelMap).forEach(lbl => {
+    lbl.setAttribute('fill', 'rgba(255,255,255,0.12)');
+  });
+}
+
+function colorNode(name, color, r = 7, strokeColor = null, pulse = false) {
+  const n = nodeMap[name];
+  if (!n) return;
+  n.dot.setAttribute('r', r);
+  n.dot.setAttribute('fill', color);
+  n.dot.setAttribute('stroke', strokeColor || color);
+  n.dot.setAttribute('stroke-width', strokeColor ? 2 : 1);
+  n.lbl.setAttribute('fill', '#fff');
+  if (pulse) {
+    n.pulse.style.display = '';
+    n.pulse.setAttribute('stroke', color);
+  } else {
+    n.pulse.style.display = 'none';
+  }
+}
+
+function colorEdge(a, b, cls) {
+  const line = edgeMap[edgeKey(a, b)];
+  if (line) line.setAttribute('class', 'edge-line ' + cls);
+  const lbl = edgeLabelMap[edgeKey(a, b)];
+  if (lbl && cls === 'path-edge') lbl.setAttribute('fill', 'rgba(157,151,255,0.6)');
+}
+
+// =============================================
+//   POPULATE SELECTS
+// =============================================
+function initSelects() {
+  const cities = Object.keys(CITIES).sort();
+  const ss = document.getElementById('start-sel');
+  const gs = document.getElementById('goal-sel');
+  cities.forEach(c => {
+    ss.add(new Option(c, c));
+    gs.add(new Option(c, c));
+  });
+  ss.value = 'Arad';
+  gs.value = 'Bucharest';
+}
+
+// =============================================
+//   ANIMATION
+// =============================================
+let animTimeout = null;
+
+function clearAnim() {
+  if (animTimeout) clearTimeout(animTimeout);
+}
+
+async function animateSearch(result) {
+  const speedSlider = document.getElementById('speed');
+  const speed = () => {
+    const v = parseInt(speedSlider.value);
+    return Math.round(1100 - v * 100);
+  };
+
+  const stepsList = document.getElementById('steps-list');
+  stepsList.innerHTML = '';
+
+  const start = result.steps[0].city;
+  const goal = result.steps[result.steps.length - 1];
+  const goalCity = result.found ? result.path[result.path.length - 1] : null;
+
+  // Color start node
+  colorNode(start, 'var(--green)', 8, '#4ade80', true);
+
+  let stepIdx = 0;
+  function doStep() {
+    if (stepIdx >= result.steps.length) {
+      // Final: highlight path
+      if (result.found) {
+        for (let i = 0; i < result.path.length - 1; i++) {
+          colorEdge(result.path[i], result.path[i+1], 'path-edge');
+        }
+        result.path.forEach((c, i) => {
+          if (c === start) return;
+          if (c === goalCity) {
+            colorNode(c, 'var(--red)', 9, '#ff5a6e', true);
+          } else {
+            colorNode(c, 'var(--accent)', 7, 'var(--accent2)');
+          }
+        });
+        colorNode(start, 'var(--green)', 8, '#4ade80');
+
+        // Update stats
+        document.getElementById('s-dist').textContent = result.cost + ' km';
+        document.getElementById('s-hops').textContent = result.path.length - 1;
+        document.getElementById('s-exp').textContent = result.explored.length;
+        const eff = Math.round((result.path.length / result.explored.length) * 100);
+        document.getElementById('s-eff').textContent = eff + '%';
+      }
+      document.getElementById('run-btn').textContent = '▶ Run GBFS';
+      document.getElementById('run-btn').disabled = false;
+      return;
+    }
+
+    const step = result.steps[stepIdx];
+    const isOnPath = result.found && result.path.includes(step.city);
+
+    if (step.city !== start && step.city !== goalCity) {
+      const col = isOnPath ? 'var(--accent2)' : 'rgba(245,200,66,0.8)';
+      colorNode(step.city, col, isOnPath ? 7 : 5.5, isOnPath ? 'var(--accent)' : 'rgba(245,200,66,0.5)');
+    }
+
+    // Add to log
+    const item = document.createElement('div');
+    item.className = 'step-item';
+    item.innerHTML = `
+      <div class="step-num ${isOnPath ? 'path' : 'explored'}">${stepIdx + 1}</div>
+      <div class="step-name">${step.city}</div>
+      <div class="step-h">h=${step.h}</div>
+    `;
+    stepsList.appendChild(item);
+    setTimeout(() => item.classList.add('visible'), 20);
+    stepsList.scrollTop = stepsList.scrollHeight;
+
+    stepIdx++;
+    animTimeout = setTimeout(doStep, speed());
+  }
+
+  doStep();
+}
+
+// =============================================
+//   RUN
+// =============================================
+function runSearch() {
+  clearAnim();
+  resetColors();
+  document.getElementById('empty-state').style.display = 'none';
+  document.getElementById('no-path').style.display = 'none';
+  document.getElementById('s-dist').textContent = '—';
+  document.getElementById('s-hops').textContent = '—';
+  document.getElementById('s-exp').textContent = '—';
+  document.getElementById('s-eff').textContent = '—';
+  document.getElementById('steps-list').innerHTML = '';
+
+  const start = document.getElementById('start-sel').value;
+  const goal = document.getElementById('goal-sel').value;
+
+  if (start === goal) {
+    document.getElementById('no-path').textContent = 'Start and goal cannot be the same city.';
+    document.getElementById('no-path').style.display = 'block';
+    return;
+  }
+
+  const graph = buildGraph();
+  const result = gbfs(graph, start, goal);
+
+  if (!result.found) {
+    document.getElementById('no-path').style.display = 'block';
+    return;
+  }
+
+  document.getElementById('run-btn').textContent = '⟳ Running…';
+  document.getElementById('run-btn').disabled = true;
+
+  colorNode(goal, 'var(--red)', 8, '#ff5a6e', true);
+  animateSearch(result);
+}
+
+// =============================================
+//   SPEED DISPLAY
+// =============================================
+document.getElementById('speed').addEventListener('input', function() {
+  document.getElementById('speed-val').textContent = this.value;
+});
+
+// =============================================
+//   INIT
+// =============================================
+initSelects();
+window.addEventListener('DOMContentLoaded', () => {});
+window.addEventListener('load', () => {
+  renderMap();
+});
+window.addEventListener('resize', () => {
+  clearAnim();
+  renderMap();
+  document.getElementById('empty-state').style.display = 'flex';
+});
+// Render on load
+setTimeout(renderMap, 50);
+</script>
+</body>
+</html>
